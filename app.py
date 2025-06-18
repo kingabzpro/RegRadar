@@ -63,33 +63,35 @@ class RegRadarChat:
             return "I apologize, but I encountered an error processing your request."
 
     def check_cache(self, cache_key: str) -> Optional[Dict]:
-        """Check if we have cached results for this search"""
+        """Check if we have cached results for this search using latest Mem0 search best practices"""
         try:
-            # Search in Mem0 for cached results
-            memories = mem0_client.search(
-                query=f"cache_key:{cache_key}", user_id="cache_system", limit=1
+            # Use Mem0 search with metadata filter for cache_key
+            filters = {
+                "AND": [
+                    {"metadata": {"cache_key": cache_key}},
+                    {"metadata": {"type": "cache"}},
+                ]
+            }
+            memories = mem0_client.get_all(
+                version="v2", filters=filters, page=1, page_size=1
             )
-
             if memories and len(memories) > 0:
-                # Parse the cached data
                 memory_content = memories[0].get("content", "")
                 if "cached_data:" in memory_content:
-                    cached_json = memory_content.split("cached_data:")[1]
+                    cached_json = memory_content.split("cached_data:", 1)[1]
                     return json.loads(cached_json)
         except Exception as e:
             print(f"Cache check error: {e}")
-
         return None
 
     def save_to_cache(self, cache_key: str, data: Dict):
-        """Save crawled data to cache"""
+        """Save crawled data to cache using latest Mem0 add best practices"""
         try:
             cache_data = {
                 "cache_key": cache_key,
                 "timestamp": datetime.now().isoformat(),
                 "data": data,
             }
-
             mem0_client.add(
                 messages=[
                     {
@@ -225,20 +227,79 @@ class RegRadarChat:
 # Initialize the chat instance
 chat_instance = RegRadarChat()
 
+
 # Streaming generator for regulatory Q&
 def streaming_chatbot(message, history):
-    # Add the user message to history
-    history = history + [{"role": "user", "content": message}]
-    # Get the prompt for the LLM (simulate what process_message does for 'results_shown')
-    prompt = f"""
-    Based on the regulatory information for {chat_instance.conversation_state.get("industry")} in {chat_instance.conversation_state.get("region")},
-    answer this question: {message}
-    
-    Be helpful and specific. If you don't have enough information, say so.
+    # 0. Intent detection: decide if this is a regulatory/compliance question or just a general/greeting/chat
+    intent_prompt = f"""
+    Is the following user message a regulatory, compliance, or update-related question (yes/no)?
+    Message: {message}
+    Respond with only 'yes' or 'no'.
     """
+    intent = chat_instance.call_llm(intent_prompt).strip().lower()
+    if intent.startswith("n"):
+        # General chat, not regulatory: use LLM for a conversational response
+        chat_prompt = f"You are a friendly AI assistant. Respond conversationally to the following user message.\nMessage: {message}"
+        history = history + [{"role": "user", "content": message}]
+        history = history + [{"role": "assistant", "content": ""}]
+        for chunk in chat_instance.stream_llm(chat_prompt):
+            history[-1]["content"] = chunk
+            yield history, ""
+        return
+
+    # 1. Extract industry, region, and keywords from the user's message using the LLM
+    extract_prompt = f"""
+    Extract the industry, region, and main keywords from the following user query for regulatory monitoring. 
+    Respond in JSON with keys: industry, region, keywords. If not specified, use 'General' for industry, 'US' for region, and use the main topic as keywords.
+    Query: {message}
+    """
+    extraction = chat_instance.call_llm(extract_prompt)
+    try:
+        parsed = json.loads(extraction)
+        industry = parsed.get("industry", "General")
+        region = parsed.get("region", "US")
+        keywords = parsed.get("keywords", message)
+    except Exception:
+        industry = "General"
+        region = "US"
+        keywords = message
+
+    # 2. Crawl regulatory sites (or check cache)
+    cache_key = chat_instance.generate_cache_key(industry, region, keywords)
+    cached = chat_instance.check_cache(cache_key)
+    if cached:
+        results = cached["data"]["results"]
+    else:
+        data = chat_instance.crawl_regulatory_sites(industry, region, keywords)
+        chat_instance.save_to_cache(cache_key, data)
+        results = data["results"]
+
+    # 3. Summarize results (streaming)
+    if not results:
+        summary_prompt = f"No regulatory updates found for {industry} in {region} with keywords: {keywords}."
+    else:
+        # Group by source for summary
+        by_source = {}
+        for result in results[:8]:
+            source = result.get("source", "Unknown")
+            if source not in by_source:
+                by_source[source] = []
+            by_source[source].append(result)
+        summary_prompt = f"""
+        Analyze these regulatory updates and provide:
+        1. A brief overview of the key findings
+        2. The most important compliance changes
+        3. Action items for compliance teams
+        
+        Updates:
+        {json.dumps(by_source, indent=2)}
+        
+        Format your response in a conversational way, using bullet points for clarity.
+        """
+
     # Start with an empty assistant message
     history = history + [{"role": "assistant", "content": ""}]
-    for chunk in chat_instance.stream_llm(prompt):
+    for chunk in chat_instance.stream_llm(summary_prompt):
         history[-1]["content"] = chunk
         yield history, ""
 
@@ -248,7 +309,6 @@ with gr.Blocks(title="RegRadar Chat", theme=gr.themes.Soft()) as demo:
     gr.HTML("""
     <center>
         <h1 style="text-align: center;">🛰️RegRadar</h1>
-        <p>Your intelligent assistant for real-time regulatory monitoring</p>
         <p><b>Ask any question about regulations, compliance, or recent updates in any industry or region.</b></p>
     </center>
     """)
@@ -292,12 +352,8 @@ with gr.Blocks(title="RegRadar Chat", theme=gr.themes.Soft()) as demo:
     def enable_input():
         return gr.update(interactive=True), gr.update(interactive=True)
 
-    submit_event = msg.submit(
-        user_submit, [msg, chatbot], [chatbot, msg, msg, submit]
-    ).then(enable_input, [], [msg, submit])
-    click_event = submit.click(
-        user_submit, [msg, chatbot], [chatbot, msg, msg, submit]
-    ).then(enable_input, [], [msg, submit])
+    submit_event = msg.submit(streaming_chatbot, [msg, chatbot], [chatbot, msg])
+    click_event = submit.click(streaming_chatbot, [msg, chatbot], [chatbot, msg])
 
     clear.click(lambda: ([], ""), outputs=[chatbot, msg])
 
