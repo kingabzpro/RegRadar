@@ -190,135 +190,17 @@ class RegRadarChat:
     def process_message(
         self, message: str, history: List[Dict]
     ) -> Tuple[List[Dict], str]:
-        """Process user message and generate response"""
-        # Initialize conversation state if needed
-        if len(history) == 0:
-            self.conversation_state = {
-                "stage": "greeting",
-                "industry": None,
-                "region": None,
-                "keywords": None,
-            }
-
-        # Handle different conversation stages
-        if self.conversation_state["stage"] == "greeting":
-            response = """👋 Hello! I'm RegRadar, your AI regulatory compliance assistant.
-
-I can help you find the latest regulatory updates for your industry. To get started, please tell me:
-
-**What industry are you in?** (e.g., Finance, Healthcare, Technology, Energy, etc.)"""
-            self.conversation_state["stage"] = "awaiting_industry"
-
-        elif self.conversation_state["stage"] == "awaiting_industry":
-            self.conversation_state["industry"] = message
-            response = f"""Great! I'll help you find regulatory updates for the **{message}** industry.
-
-**Which region's regulations are you interested in?**
-• US - United States regulations
-• EU - European Union regulations  
-• Global - International regulations"""
-            self.conversation_state["stage"] = "awaiting_region"
-
-        elif self.conversation_state["stage"] == "awaiting_region":
-            if message.upper() in ["US", "EU", "GLOBAL"]:
-                self.conversation_state["region"] = message.upper()
-                response = """Perfect! One last question:
-
-**Are there any specific keywords or topics you're particularly interested in?**
-(e.g., "data privacy", "AI", "ESG", "cybersecurity", or just type "none" for general updates)"""
-                self.conversation_state["stage"] = "awaiting_keywords"
-            else:
-                response = "Please choose from: US, EU, or Global"
-
-        elif self.conversation_state["stage"] == "awaiting_keywords":
-            keywords = "" if message.lower() == "none" else message
-            self.conversation_state["keywords"] = keywords
-
-            # Generate cache key
-            cache_key = self.generate_cache_key(
-                self.conversation_state["industry"],
-                self.conversation_state["region"],
-                keywords,
-            )
-
-            # Check cache first
-            cached_data = self.check_cache(cache_key)
-
-            if cached_data:
-                response = f"""✅ **Found recent scan results!** (cached from {cached_data["timestamp"][:10]})
-
-I found existing results for {self.conversation_state["industry"]} regulations in {self.conversation_state["region"]}. Here's what I found:
-
-{self.summarize_results(cached_data["data"]["results"])}
-
-Would you like me to:
-• **Refresh** - Get the latest updates (new crawl)
-• **Details** - See specific regulatory documents
-• **New Search** - Start a different search"""
-            else:
-                response = f"""🔍 **Scanning regulatory sources...**
-
-Looking for {self.conversation_state["industry"]} regulations in {self.conversation_state["region"]}...
-Keywords: {keywords if keywords else "General updates"}
-
-*This may take a moment as I crawl regulatory websites...*"""
-
-                # Perform the crawl
-                crawl_data = self.crawl_regulatory_sites(
-                    self.conversation_state["industry"],
-                    self.conversation_state["region"],
-                    keywords,
-                )
-
-                # Save to cache
-                self.save_to_cache(cache_key, crawl_data)
-
-                # Generate summary
-                summary = self.summarize_results(crawl_data["results"])
-
-                response = f"""✅ **Scan Complete!**
-
-Here's what I found for {self.conversation_state["industry"]} regulations in {self.conversation_state["region"]}:
-
-{summary}
-
-**What would you like to do next?**
-• Type **"details"** to see specific documents
-• Type **"new"** to start a new search
-• Ask me any questions about these regulations"""
-
-            self.conversation_state["stage"] = "results_shown"
-
-        elif self.conversation_state["stage"] == "results_shown":
-            if "new" in message.lower():
-                self.conversation_state = {"stage": "greeting"}
-                response = self.process_message("", [])[1]
-            elif "refresh" in message.lower():
-                self.conversation_state["stage"] = "awaiting_keywords"
-                response = self.process_message(
-                    self.conversation_state.get("keywords", "none"), history
-                )[1]
-            elif "details" in message.lower():
-                response = """Please specify which regulatory area you'd like more details about, or paste a URL from the results above for me to analyze in depth."""
-            else:
-                # Answer questions about the regulations
-                prompt = f"""
-                Based on the regulatory information for {self.conversation_state["industry"]} in {self.conversation_state["region"]},
-                answer this question: {message}
-                
-                Be helpful and specific. If you don't have enough information, say so.
-                """
-                response = self.call_llm(prompt)
-
+        """Process user message and generate response (open Q&A style)"""
+        if not message.strip():
+            response = "👋 Hello! I'm RegRadar, your AI regulatory compliance assistant.\n\nAsk me any question about regulations, compliance, or recent updates in any industry or region."
         else:
-            response = (
-                "I'm not sure how to help with that. Type 'new' to start a new search."
-            )
+            prompt = f"""
+            You are an expert regulatory compliance assistant. Answer the following question as helpfully and specifically as possible. If the question is about a particular industry, region, or topic, use your knowledge to provide the most relevant and up-to-date information. If you don't have enough information, say so.\n\nQuestion: {message}
+            """
+            response = self.call_llm(prompt)
 
-        # Update history with new message format
         history.append({"role": "user", "content": message})
         history.append({"role": "assistant", "content": response})
-
         return history, ""
 
     def stream_llm(self, prompt: str, temperature: float = 0.3):
@@ -343,10 +225,7 @@ Here's what I found for {self.conversation_state["industry"]} regulations in {se
 # Initialize the chat instance
 chat_instance = RegRadarChat()
 
-# Streaming generator for regulatory Q&A
-import types
-
-
+# Streaming generator for regulatory Q&
 def streaming_chatbot(message, history):
     # Add the user message to history
     history = history + [{"role": "user", "content": message}]
@@ -370,6 +249,7 @@ with gr.Blocks(title="RegRadar Chat", theme=gr.themes.Soft()) as demo:
     <center>
         <h1 style="text-align: center;">🛰️RegRadar</h1>
         <p>Your intelligent assistant for real-time regulatory monitoring</p>
+        <p><b>Ask any question about regulations, compliance, or recent updates in any industry or region.</b></p>
     </center>
     """)
 
@@ -392,26 +272,20 @@ with gr.Blocks(title="RegRadar Chat", theme=gr.themes.Soft()) as demo:
         msg = gr.Textbox(
             placeholder="Ask about regulatory updates, compliance, or any related topic...",
             show_label=False,
-            scale=19,
+            scale=18,
             autofocus=True,
         )
         submit = gr.Button("Send", variant="primary", scale=1, min_width=60)
+        clear = gr.Button("Clear", scale=1, min_width=60)
 
     gr.Examples(examples=example_queries, inputs=msg, label="Example Queries")
-
-    with gr.Row():
-        clear = gr.Button("🔄 Clear Chat", size="sm")
 
     # Event handlers
     def user_submit(message, history):
         if not message.strip():
             # Do not add empty messages, just return the current history and clear the input
             return history, "", gr.update(interactive=True), gr.update(interactive=True)
-        # Use streaming only for regulatory Q&A (results_shown)
-        if chat_instance.conversation_state.get("stage") == "results_shown":
-            # Return a generator for streaming
-            return types.GeneratorType, streaming_chatbot(message, history)
-        # Otherwise, use the normal synchronous handler
+        # Always use the open Q&A handler
         new_history, _ = chat_instance.process_message(message, history)
         return new_history, "", gr.update(interactive=True), gr.update(interactive=True)
 
@@ -427,18 +301,16 @@ with gr.Blocks(title="RegRadar Chat", theme=gr.themes.Soft()) as demo:
 
     clear.click(lambda: ([], ""), outputs=[chatbot, msg])
 
-    # Initial greeting
-    demo.load(
-        lambda: chat_instance.process_message("", [])[0:2], outputs=[chatbot, msg]
-    )
-
     gr.Markdown("""
-    ---
-    **Features:**
-    • 🔍 Intelligent web crawling of regulatory sites
-    • 💾 Cached results to avoid duplicate crawling
-    • 🤖 AI-powered analysis and summaries
-    • 💬 Natural conversation interface
+    <details>
+        <summary><strong>Features</strong></summary>
+        <ul>
+            <li>🔍 Intelligent web crawling of regulatory sites</li>
+            <li>💾 Cached results to avoid duplicate crawling</li>
+            <li>🤖 AI-powered analysis and summaries</li>
+            <li>💬 Natural conversation interface</li>
+        </ul>
+    </details>
     """)
 
 # Set up event loop properly for Gradio
