@@ -11,21 +11,34 @@ OPENAI_BASE_URL = "https://api.keywordsai.co/api/"
 # Regulatory websites mapping
 REGULATORY_SOURCES = {
     "US": {
-        "SEC": "https://www.sec.gov/news/pressreleases",
-        "FDA": "https://www.fda.gov/news-events/fda-newsroom/press-announcements",
-        "FTC": "https://www.ftc.gov/news-events/news/press-releases",
+        "SEC": "https://www.sec.gov/news/pressreleases",  
+        "FDA": "https://www.fda.gov/news-events/fda-newsroom/press-announcements",  
+        "FTC": "https://www.ftc.gov/news-events/news/press-releases",  
         "Federal Register": "https://www.federalregister.gov/documents/current",
+        "CFTC": "https://www.cftc.gov/PressRoom/PressReleases", 
+        "FDIC": "https://www.fdic.gov/news/press-releases/",  
+        "FINRA": "https://www.finra.org/media-center/newsreleases", 
+        "Federal Reserve Board": "https://www.federalreserve.gov/newsevents/pressreleases.htm",  
     },
     "EU": {
-        "European Commission": "https://ec.europa.eu/commission/presscorner/home/en",
-        "ESMA": "https://www.esma.europa.eu/press-news/esma-news",
-        "EBA": "https://www.eba.europa.eu/news-press/news",
+        "ESMA": "https://www.esma.europa.eu/press-news/esma-news",  
+        "EBA": "https://www.eba.europa.eu/publications-and-media",  
+        "EIOPA": "https://www.eiopa.europa.eu/media/news_en",  
+        "European Parliament News": "https://www.europarl.europa.eu/news/en/press-room",  
+        "ECB": "https://www.ecb.europa.eu/press/pr/html/index.en.html",  
+    },
+    "Asia": {
+        "Japan FSA": "https://www.fsa.go.jp/en/news/",  
+        "Reserve Bank of India (RBI)": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx",  
     },
     "Global": {
-        "BIS": "https://www.bis.org/press/index.htm",
-        "IOSCO": "https://www.iosco.org/news/",
+        "BIS": "https://www.bis.org/press/index.htm",  
+        "IMF": "https://www.imf.org/en/News",  
+        "World Bank": "https://www.worldbank.org/en/news/all",  
+        "OECD": "https://www.oecd.org/newsroom/",  
     },
 }
+
 
 # UI settings
 AVATAR_IMAGES = (
