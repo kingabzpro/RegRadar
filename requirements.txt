@@ -2,3 +2,5 @@ langgraph==0.4.8
 openai==1.88.0
 tavily-python==0.7.6
 mem0ai==0.1.108
+openai-agents==0.0.19
+gradio==5.34.0
