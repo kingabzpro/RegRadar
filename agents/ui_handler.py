@@ -1,24 +1,30 @@
 import time
+
 import gradio as gr
 from gradio import ChatMessage
-from config.settings import AVATAR_IMAGES
+
 from agents.reg_radar import RegRadarAgent
+from config.settings import AVATAR_IMAGES
 from tools.llm import stream_llm
+
 
 class UIHandler:
     def __init__(self):
         self.agent = RegRadarAgent()
 
     def streaming_chatbot(self, message, history):
-        """Process messages with tool visibility"""
+        """Process messages with tool visibility and lock input during response generation"""
         if not message.strip():
-            return history, ""
+            return history, "", gr.update(interactive=True)
 
         # Add user message
         history.append(ChatMessage(role="user", content=message))
 
         # Start timer
         start_time = time.time()
+
+        # Disable input box at the start
+        yield history, "", gr.update(interactive=False)
 
         # Detect if this is a regulatory query
         is_regulatory = self.agent.is_regulatory_query(message)
@@ -28,33 +34,31 @@ class UIHandler:
             history.append(
                 ChatMessage(role="assistant", content="💬 Processing general query...")
             )
-            yield history, ""
+            yield history, "", gr.update(interactive=False)
 
             # Clear processing message and stream response
             history.pop()
 
-            chat_prompt = (
-                f"You are a friendly AI assistant. Respond conversationally to: {message}"
-            )
+            chat_prompt = f"You are a friendly AI assistant. Respond conversationally to: {message}"
             streaming_content = ""
             history.append(ChatMessage(role="assistant", content=""))
 
             for chunk in stream_llm(chat_prompt):
                 streaming_content += chunk
                 history[-1] = ChatMessage(role="assistant", content=streaming_content)
-                yield history, ""
+                yield history, "", gr.update(interactive=False)
 
+            # Re-enable input box at the end
+            yield history, "", gr.update(interactive=True)
             return
 
         # Show tool detection
         tool_key, tool_name = self.agent.determine_intended_tool(message)
 
         # Initial processing message with tool info
-        status_msg = (
-            f"🔍 Using **{tool_name}** to analyze your query (estimated 10-20 seconds)..."
-        )
+        status_msg = f"🔍 Using **{tool_name}** to analyze your query (estimated 10-20 seconds)..."
         history.append(ChatMessage(role="assistant", content=status_msg))
-        yield history, ""
+        yield history, "", gr.update(interactive=False)
 
         # Extract parameters and process query
         params = self.agent.extract_parameters(message)
@@ -74,7 +78,7 @@ class UIHandler:
 🔄 **Executing {tool_name}...**
 """
         history.append(ChatMessage(role="assistant", content=tool_status))
-        yield history, ""
+        yield history, "", gr.update(interactive=False)
 
         # Process the regulatory query
         results = self.agent.process_regulatory_query(message)
@@ -87,7 +91,7 @@ class UIHandler:
             content=tool_status
             + f"\n\n✅ **Found {crawl_results['total_found']} regulatory updates**",
         )
-        yield history, ""
+        yield history, "", gr.update(interactive=False)
 
         # Show collapsible raw results
         if crawl_results["results"]:
@@ -109,11 +113,11 @@ class UIHandler:
 </details>
 """
             history.append(ChatMessage(role="assistant", content=collapsible_results))
-            yield history, ""
+            yield history, "", gr.update(interactive=False)
 
         # Display memory results if available
         if memory_results:
-            memory_msg = """
+            memory_msg = f"""
 <details>
 <summary><strong>💾 Related Past Queries</strong> - Click to expand</summary>
 
@@ -122,13 +126,15 @@ Found {len(memory_results)} similar past queries in memory.
 </details>
 """
             history.append(ChatMessage(role="assistant", content=memory_msg))
-            yield history, ""
+            yield history, "", gr.update(interactive=False)
 
         # Generate final analysis
         history.append(
-            ChatMessage(role="assistant", content="📝 **Generating Compliance Report...**")
+            ChatMessage(
+                role="assistant", content="📝 **Generating Compliance Report...**"
+            )
         )
-        yield history, ""
+        yield history, "", gr.update(interactive=False)
 
         # Clear generating message and stream final report
         history.pop()
@@ -139,7 +145,7 @@ Found {len(memory_results)} similar past queries in memory.
         for chunk in self.agent.generate_report(params, crawl_results):
             streaming_content += chunk
             history[-1] = ChatMessage(role="assistant", content=streaming_content)
-            yield history, ""
+            yield history, "", gr.update(interactive=False)
 
         # Save to memory
         self.agent.memory_tools.save_to_memory("user", message, streaming_content)
@@ -151,7 +157,12 @@ Found {len(memory_results)} similar past queries in memory.
                 role="assistant", content=f"✨ **Analysis complete** ({elapsed:.1f}s)"
             )
         )
-        yield history, ""
+        # Re-enable input box at the end
+        yield history, "", gr.update(interactive=True)
+
+    def delayed_clear(self):
+        time.sleep(0.1)  # 100ms delay to allow generator cancellation
+        return [], "", gr.update(interactive=True)
 
     def create_ui(self):
         """Create Gradio interface"""
@@ -192,6 +203,7 @@ Found {len(memory_results)} similar past queries in memory.
                     autofocus=True,
                 )
                 submit = gr.Button("Send", variant="primary", scale=1, min_width=60)
+                stop = gr.Button("Stop", variant="stop", scale=1, min_width=60)
                 clear = gr.Button("Clear", scale=1, min_width=60)
 
             # Example queries
@@ -232,9 +244,14 @@ Found {len(memory_results)} similar past queries in memory.
                 """)
 
             # Event handlers
-            submit_event = msg.submit(self.streaming_chatbot, [msg, chatbot], [chatbot, msg])
-            click_event = submit.click(self.streaming_chatbot, [msg, chatbot], [chatbot, msg])
-            clear.click(lambda: ([], ""), outputs=[chatbot, msg])
+            submit_event = msg.submit(
+                self.streaming_chatbot, [msg, chatbot], [chatbot, msg, msg]
+            )
+            click_event = submit.click(
+                self.streaming_chatbot, [msg, chatbot], [chatbot, msg, msg]
+            )
+            stop.click(None, cancels=[submit_event, click_event])
+            clear.click(self.delayed_clear, outputs=[chatbot, msg, msg])
 
             # Footer
             gr.HTML("""
@@ -245,4 +262,3 @@ Found {len(memory_results)} similar past queries in memory.
             """)
 
         return demo
-
