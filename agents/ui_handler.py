@@ -95,16 +95,26 @@ class UIHandler:
 
         # Show collapsible raw results
         if crawl_results["results"]:
-            # Format results for display
+            # Format results for display, remove duplicates by URL
+            seen_urls = set()
             results_display = []
-            for i, result in enumerate(crawl_results["results"][:5], 1):
+            count = 0
+            for result in crawl_results["results"]:
+                url = result["url"]
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                title = result["title"][:100] if result["title"] else "No Title"
+                count += 1
                 results_display.append(f"""
-**{i}. {result["source"]}**
-- Title: {result["title"][:100]}...
-- URL: {result["url"]}
+**{count}. {result["source"]}**
+- Title: {title}...
+- URL: {url}
 """)
-
-            collapsible_results = f"""
+                if count >= 5:
+                    break
+            if results_display:
+                collapsible_results = f"""
 <details>
 <summary><strong>📋 Raw Regulatory Data</strong> - Click to expand</summary>
 
@@ -112,6 +122,8 @@ class UIHandler:
 
 </details>
 """
+            else:
+                collapsible_results = "<details><summary><strong>📋 Raw Regulatory Data</strong> - Click to expand</summary>\nNo unique regulatory updates found.\n</details>"
             history.append(ChatMessage(role="assistant", content=collapsible_results))
             yield history, "", gr.update(interactive=False)
 
@@ -192,7 +204,6 @@ Found {len(memory_results)} similar past queries in memory.
                 type="messages",
                 avatar_images=AVATAR_IMAGES,
                 show_copy_button=True,
-                bubble_full_width=False,
             )
 
             with gr.Row(equal_height=True):
