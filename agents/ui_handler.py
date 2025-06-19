@@ -1,3 +1,4 @@
+import threading
 import time
 
 import gradio as gr
@@ -81,7 +82,7 @@ class UIHandler:
         yield history, "", gr.update(interactive=False)
 
         # Process the regulatory query
-        results = self.agent.process_regulatory_query(message)
+        results = self.agent.process_regulatory_query(message, params)
         crawl_results = results["crawl_results"]
         memory_results = results["memory_results"]
 
@@ -159,10 +160,7 @@ Found {len(memory_results)} similar past queries in memory.
             history[-1] = ChatMessage(role="assistant", content=streaming_content)
             yield history, "", gr.update(interactive=False)
 
-        # Save to memory
-        self.agent.memory_tools.save_to_memory("user", message, streaming_content)
-
-        # Show completion time
+        # Show completion time (before saving to memory)
         elapsed = time.time() - start_time
         history.append(
             ChatMessage(
@@ -171,6 +169,13 @@ Found {len(memory_results)} similar past queries in memory.
         )
         # Re-enable input box at the end
         yield history, "", gr.update(interactive=True)
+
+        # Save to memory in the background
+        threading.Thread(
+            target=self.agent.memory_tools.save_to_memory,
+            args=("user", message, streaming_content),
+            daemon=True,
+        ).start()
 
     def delayed_clear(self):
         time.sleep(0.1)  # 100ms delay to allow generator cancellation

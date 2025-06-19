@@ -4,9 +4,16 @@ from typing import Dict
 from tavily import TavilyClient
 
 from config.settings import REGULATORY_SOURCES, TAVILY_API_KEY
+from tools.llm import call_llm
 
 # Initialize Tavily client
 tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
+
+
+class ChatMessage:
+    def __init__(self, role, content):
+        self.role = role
+        self.content = content
 
 
 class WebTools:
@@ -78,43 +85,23 @@ class WebTools:
         return results
 
     def extract_parameters(self, message: str) -> Dict:
-        """Extract industry, region, and keywords from the query using LLM function calling only"""
-        function_schema = {
-            "name": "extract_parameters",
-            "description": (
-                "Extract industry, region, and keywords from a user query.\n"
-                "- 'industry': The main industry mentioned or implied (e.g., fintech, healthcare, energy, general).\n"
-                "- 'region': The country or region explicitly mentioned (e.g., US, EU, UK, Asia).\n"
-                "- 'keywords': Only the most important regulatory topics or terms (e.g., 'data privacy', 'GDPR', 'ESG compliance', 'SEC regulations'), not generic words or verbs.\n"
-                "Examples:\n"
-                "- 'Show me the latest SEC regulations for fintech' => industry: 'fintech', region: 'US', keywords: 'SEC regulations'\n"
-                "- 'What are the new data privacy rules in the EU?' => industry: 'General', region: 'EU', keywords: 'data privacy'\n"
-                "- 'Scan for healthcare regulations in the US' => industry: 'healthcare', region: 'US', keywords: 'healthcare regulations'\n"
-                "- 'Any updates on ESG compliance for energy companies?' => industry: 'energy', region: 'US', keywords: 'ESG compliance'\n"
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "industry": {
-                        "type": "string",
-                        "description": "The industry mentioned or implied in the query (e.g., fintech, healthcare, energy, general).",
-                    },
-                    "region": {
-                        "type": "string",
-                        "description": "The region or country explicitly mentioned in the query (e.g., US, EU, UK, Asia).",
-                    },
-                    "keywords": {
-                        "type": "string",
-                        "description": "A concise list of the most important regulatory topics or terms from the query, separated by commas. Do NOT return the full user question, generic words, or verbs.",
-                    },
-                },
-                "required": ["industry", "region", "keywords"],
-            },
-        }
-        params = call_llm_with_function(message, function_schema)
-        # Optionally, you can add a minimal fallback if params is None or missing keys
-        if not params or not all(
-            k in params for k in ("industry", "region", "keywords")
-        ):
+        """Extract industry, region, and keywords from the query using LLM (no function calling)."""
+        prompt = f"""
+        Extract the following information from the user query below and return ONLY a valid JSON object with keys: industry, region, keywords.
+        - industry: The industry mentioned or implied (e.g., fintech, healthcare, energy, general).
+        - region: The region or country explicitly mentioned (e.g., US, EU, UK, Asia, Global).
+        - keywords: The most important regulatory topics or terms, separated by commas. Do NOT include generic words or verbs.
+        
+        User query: {message}
+        
+        Example output:
+        {{"industry": "fintech", "region": "US", "keywords": "SEC regulations"}}
+        """
+        import json
+
+        response = call_llm(prompt)
+        try:
+            params = json.loads(response)
+        except Exception:
             params = {"industry": "", "region": "", "keywords": ""}
         return params
