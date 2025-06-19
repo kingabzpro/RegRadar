@@ -188,7 +188,7 @@ Found {len(memory_results)} similar past queries in memory.
 
             # Main chat interface
             chatbot = gr.Chatbot(
-                height=500,
+                height=400,
                 type="messages",
                 avatar_images=AVATAR_IMAGES,
                 show_copy_button=True,
