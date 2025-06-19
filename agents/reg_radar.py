@@ -35,7 +35,7 @@ class RegRadarAgent:
             "description": (
                 "Extract industry, region, and keywords from a user query.\n"
                 "- 'industry': If not explicitly mentioned, infer the most relevant industry from the context (e.g., if the query is about SEC regulations, infer 'fintech' or 'finance').\n"
-                "- 'region': The country or region explicitly mentioned (e.g., US, EU, UK, Asia).\n"
+                "- 'region': The country or region explicitly mentioned (e.g., US, EU, UK, Asia, Global).\n"
                 "- 'keywords': Only the most important regulatory topics or terms (e.g., 'data privacy', 'GDPR', 'ESG compliance', 'SEC regulations'), not generic words or verbs.\n"
                 "Examples:\n"
                 "- 'Show me the latest SEC regulations for fintech' => industry: 'fintech', region: 'US', keywords: 'SEC regulations'\n"
@@ -85,7 +85,7 @@ class RegRadarAgent:
                     break
             # Extract region
             region_match = re.search(
-                r"\b(EU|US|UK|Asia|Europe|America|Canada|Australia|India|China|Japan)\b",
+                r"\b(EU|US|UK|Asia|Europe|America|Canada|Australia|India|China|Japan|Global)\b",
                 message,
                 re.IGNORECASE,
             )
