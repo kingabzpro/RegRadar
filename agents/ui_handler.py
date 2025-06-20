@@ -1,3 +1,4 @@
+import random
 import threading
 import time
 
@@ -12,6 +13,9 @@ from tools.llm import stream_llm
 class UIHandler:
     def __init__(self):
         self.agent = RegRadarAgent()
+        self.user_id = (
+            f"user-{random.randint(1000, 9999)}"  # User ID per session, small number
+        )
 
     def streaming_chatbot(self, message, history):
         """Process messages with tool visibility and lock input during response generation"""
@@ -82,7 +86,9 @@ class UIHandler:
         yield history, "", gr.update(interactive=False)
 
         # Process the regulatory query
-        results = self.agent.process_regulatory_query(message, params)
+        results = self.agent.process_regulatory_query(
+            message, params, user_id=self.user_id
+        )
         crawl_results = results["crawl_results"]
         memory_results = results["memory_results"]
 
@@ -173,7 +179,7 @@ Found {len(memory_results)} similar past queries in memory.
         # Save to memory in the background
         threading.Thread(
             target=self.agent.memory_tools.save_to_memory,
-            args=("user", message, streaming_content),
+            args=(self.user_id, message, streaming_content),
             daemon=True,
         ).start()
 
@@ -238,6 +244,14 @@ Found {len(memory_results)} similar past queries in memory.
                 gr.Markdown("""
                 ### RegRadar uses these intelligent tools:
                 
+                **🧠 Query Type Detection**
+                - Automatically detects if your message is a regulatory compliance query or a general question
+                - Selects the appropriate tools and response style based on your intent
+                
+                **📩 Information Extraction**
+                - Extracts key details (industry, region, keywords) from your command
+                - Ensures accurate and relevant regulatory analysis
+                
                 **🔍 Regulatory Web Crawler**
                 - Crawls official regulatory websites (SEC, FDA, FTC, etc.)
                 - Searches for recent updates and compliance changes
@@ -252,6 +266,7 @@ Found {len(memory_results)} similar past queries in memory.
                 - Remembers past queries and responses
                 - Learns from your compliance interests
                 - Provides context from previous interactions
+                - Each session creates a new user for personalization
                 
                 **🤖 AI Analysis Engine**
                 - Analyzes and summarizes regulatory findings

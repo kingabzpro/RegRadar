@@ -60,7 +60,9 @@ class RegRadarAgent:
         intent = call_llm(intent_prompt).strip().lower()
         return not intent.startswith("n")
 
-    def process_regulatory_query(self, message: str, params: dict = None):
+    def process_regulatory_query(
+        self, message: str, params: dict = None, user_id: str = "user"
+    ):
         """Process a regulatory query and return results"""
         # Determine the intended tool
         tool_key, tool_name = self.determine_intended_tool(message)
@@ -75,7 +77,7 @@ class RegRadarAgent:
         )
 
         # Check memory for similar queries
-        memory_results = self.memory_tools.search_memory("user", message)
+        memory_results = self.memory_tools.search_memory(user_id, message)
 
         return {
             "tool_name": tool_name,

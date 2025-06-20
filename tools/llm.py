@@ -28,12 +28,19 @@ def call_llm(prompt: str, temperature: float = DEFAULT_LLM_TEMPERATURE) -> str:
         return "I apologize, but I encountered an error processing your request."
 
 
-def stream_llm(prompt: str, temperature: float = DEFAULT_LLM_TEMPERATURE):
-    """Stream LLM response"""
+def stream_llm(
+    prompt: str,
+    temperature: float = DEFAULT_LLM_TEMPERATURE,
+    system_prompt: str = "You are an expert AI assistant specializing in regulatory updates. Provide thorough, insightful, and actionable analysis based on the user's request, focusing on compliance, recent changes, and best practices.",
+):
+    """Stream LLM response with an expert regulatory system prompt"""
     try:
         stream = client.chat.completions.create(
             model=DEFAULT_LLM_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
             temperature=temperature,
             stream=True,
         )
