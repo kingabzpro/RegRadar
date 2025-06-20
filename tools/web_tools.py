@@ -9,13 +9,6 @@ from tools.llm import call_llm
 # Initialize Tavily client
 tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
 
-
-class ChatMessage:
-    def __init__(self, role, content):
-        self.role = role
-        self.content = content
-
-
 class WebTools:
     def __init__(self):
         self.cached_searches = {}
@@ -35,13 +28,7 @@ class WebTools:
         urls_to_crawl = REGULATORY_SOURCES.get(region, REGULATORY_SOURCES["US"])
         all_results = []
 
-        crawl_instructions = f"""
-        Find pages about:
-        - Recent regulatory updates for {industry}
-        - New compliance requirements
-        - Keywords: {keywords}
-        - Focus on recent content (last 30 days)
-        """
+        crawl_instructions = f"{industry} regulatory updates, compliance, {keywords}, 30d"
 
         # Crawl regulatory sites
         for source_name, url in list(urls_to_crawl.items())[:3]:
