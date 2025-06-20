@@ -134,12 +134,17 @@ class UIHandler:
 
         # Display memory results if available
         if memory_results:
+            top_memories = memory_results[:3]
+            memory_details = ""
+            for i, mem in enumerate(top_memories, 1):
+                memory_text = mem.get("memory", "N/A")
+                memory_details += f"\n**{i}. Memory:** {memory_text[:300]}...\n"
             memory_msg = f"""
 <details>
 <summary><strong>💾 Related Past Queries</strong> - Click to expand</summary>
 
-Found {len(memory_results)} similar past queries in memory.
-
+Found {len(memory_results)} similar past queries in memory. Top 3 shown below:
+{memory_details}
 </details>
 """
             history.append(ChatMessage(role="assistant", content=memory_msg))
@@ -159,7 +164,7 @@ Found {len(memory_results)} similar past queries in memory.
         streaming_content = ""
         history.append(ChatMessage(role="assistant", content=""))
 
-        for chunk in self.agent.generate_report(params, crawl_results):
+        for chunk in self.agent.generate_report(params, crawl_results, memory_results):
             streaming_content += chunk
             history[-1] = ChatMessage(role="assistant", content=streaming_content)
             yield history, "", gr.update(interactive=False)

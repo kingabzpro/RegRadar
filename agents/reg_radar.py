@@ -86,8 +86,17 @@ class RegRadarAgent:
             "memory_results": memory_results,
         }
 
-    def generate_report(self, params, crawl_results):
-        """Generate a comprehensive regulatory report"""
+    def generate_report(self, params, crawl_results, memory_results=None):
+        """Generate a comprehensive regulatory report, including memory context if available"""
+        memory_context = ""
+        if memory_results:
+            # Format memory results for inclusion in the prompt (limit to 3 for brevity)
+            memory_context = "\n\n# 💾 Related Past Queries and Insights\n"
+            for i, mem in enumerate(memory_results[:3], 1):
+                memory_text = mem.get("memory", "N/A")
+                memory_context += f"\n**{i}. Memory:** {memory_text[:300]}...\n"
+            memory_context += "\nIncorporate any relevant insights from these past queries into your analysis.\n"
+
         if not crawl_results["results"]:
             summary_prompt = (
                 f"No regulatory updates found for {params['industry']} in {params['region']} "
@@ -104,7 +113,7 @@ class RegRadarAgent:
 
             summary_prompt = f"""
             Create a comprehensive regulatory compliance report for {params["industry"]} industry in {params["region"]} region.
-            
+            {memory_context}
             Analyze these regulatory updates:
             {json.dumps(by_source, indent=2)}
             
