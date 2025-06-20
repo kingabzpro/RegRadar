@@ -43,12 +43,10 @@ class UIHandler:
 
             # Clear processing message and stream response
             history.pop()
-
-            chat_prompt = f"You are a friendly AI assistant. Respond conversationally to: {message}"
             streaming_content = ""
             history.append(ChatMessage(role="assistant", content=""))
 
-            for chunk in stream_llm(chat_prompt):
+            for chunk in stream_llm(message):
                 streaming_content += chunk
                 history[-1] = ChatMessage(role="assistant", content=streaming_content)
                 yield history, "", gr.update(interactive=False)
@@ -204,8 +202,8 @@ Found {len(memory_results)} similar past queries in memory.
             # Header
             gr.HTML("""
             <center>
-                <h1 style="text-align: center;">🛡️ RegRadar</h1>
-                <p><b>AI-powered regulatory compliance assistant that monitors global regulations</b></p>
+                <h1>🛡️ RegRadar</h1>
+                AI-powered regulatory compliance assistant that monitors global regulations
             </center>
             """)
 
