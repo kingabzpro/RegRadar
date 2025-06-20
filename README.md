@@ -1,12 +1,12 @@
 ---
 title: RegRadar
-emoji: 💻
-colorFrom: purple
+emoji: 🛡️
+colorFrom: blue
 colorTo: indigo
 sdk: gradio
 sdk_version: 5.34.0
 app_file: app.py
-pinned: false
+pinned: true
 license: apache-2.0
 short_description: RegRadar watches the worlds regulators so you dont have to.
 ---
