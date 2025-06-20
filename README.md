@@ -29,12 +29,7 @@ RegRadar is an AI-powered regulatory compliance assistant that monitors global r
 - **Tavily**: For regulatory web crawling and search.
 - **Mem0**: For session-based memory and personalization.
 
-## 🌍 Supported Regulatory Sources
-- US: SEC, FDA, FTC, Federal Register, CFTC, FDIC, FINRA, Federal Reserve Board
-- EU: ESMA, EBA, EIOPA, European Parliament, ECB
-- Asia: Japan FSA, Reserve Bank of India
-- Global: BIS, IMF, World Bank, OECD
 
 ## 📺 Video Demo
-[//]: # (TODO: Embed or link to the video demo here)
+[![RegRadar (100 Agents Hackathon)](./image.png)](https://youtu.be/0l9e0WlMsQQ)
 
