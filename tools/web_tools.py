@@ -3,11 +3,12 @@ from typing import Dict
 
 from tavily import TavilyClient
 
-from config.settings import REGULATORY_SOURCES, TAVILY_API_KEY
+from config.settings import REGULATORY_SOURCES, SOURCE_FULL_NAMES, TAVILY_API_KEY
 from tools.llm import call_llm
 
 # Initialize Tavily client
 tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
+
 
 class WebTools:
     def __init__(self):
@@ -28,7 +29,9 @@ class WebTools:
         urls_to_crawl = REGULATORY_SOURCES.get(region, REGULATORY_SOURCES["US"])
         all_results = []
 
-        crawl_instructions = f"{industry} regulatory updates, compliance, {keywords}, 30d"
+        crawl_instructions = (
+            f"{industry} regulatory updates, compliance, {keywords}, 30d"
+        )
 
         # Crawl regulatory sites
         for source_name, url in list(urls_to_crawl.items())[:3]:
@@ -37,11 +40,14 @@ class WebTools:
                     url=url, max_depth=2, limit=5, instructions=crawl_instructions
                 )
                 for result in crawl_response.get("results", []):
+                    title = result.get("title")
+                    if not title or title == "No Title...":
+                        title = SOURCE_FULL_NAMES.get(source_name, source_name)
                     all_results.append(
                         {
                             "source": source_name,
-                            "url": url,
-                            "title": result.get("title", ""),
+                            "url": result.get("url", url),
+                            "title": title,
                             "content": result.get("raw_content", "")[:1500],
                         }
                     )
