@@ -1,6 +1,6 @@
-import random
 import threading
 import time
+import uuid
 
 import gradio as gr
 from gradio import ChatMessage
@@ -13,14 +13,16 @@ from tools.llm import stream_llm
 class UIHandler:
     def __init__(self):
         self.agent = RegRadarAgent()
-        self.user_id = (
-            f"user-{random.randint(1000, 9999)}"  # User ID per session, small number
-        )
 
-    def streaming_chatbot(self, message, history):
+    def streaming_chatbot(self, message, history, user_id_state):
         """Process messages with tool visibility and lock input during response generation"""
+        # Initialize user_id if not set
+        if not user_id_state:
+            user_id_state = f"user-{uuid.uuid4().hex[:4]}"
+        user_id = user_id_state
+
         if not message.strip():
-            return history, "", gr.update(interactive=True)
+            return history, "", gr.update(interactive=True), user_id_state
 
         # Add user message
         history.append(ChatMessage(role="user", content=message))
@@ -29,7 +31,7 @@ class UIHandler:
         start_time = time.time()
 
         # Disable input box at the start
-        yield history, "", gr.update(interactive=False)
+        yield history, "", gr.update(interactive=False), user_id_state
 
         # Detect if this is a regulatory query
         is_regulatory = self.agent.is_regulatory_query(message)
@@ -39,7 +41,7 @@ class UIHandler:
             history.append(
                 ChatMessage(role="assistant", content="💬 Processing general query...")
             )
-            yield history, "", gr.update(interactive=False)
+            yield history, "", gr.update(interactive=False), user_id_state
 
             # Clear processing message and stream response
             history.pop()
@@ -49,10 +51,10 @@ class UIHandler:
             for chunk in stream_llm(message):
                 streaming_content += chunk
                 history[-1] = ChatMessage(role="assistant", content=streaming_content)
-                yield history, "", gr.update(interactive=False)
+                yield history, "", gr.update(interactive=False), user_id_state
 
             # Re-enable input box at the end
-            yield history, "", gr.update(interactive=True)
+            yield history, "", gr.update(interactive=True), user_id_state
             return
 
         # Show tool detection
@@ -61,7 +63,7 @@ class UIHandler:
         # Initial processing message with tool info
         status_msg = f"🔍 Using **{tool_name}** to analyze your query (estimated 10-20 seconds)..."
         history.append(ChatMessage(role="assistant", content=status_msg))
-        yield history, "", gr.update(interactive=False)
+        yield history, "", gr.update(interactive=False), user_id_state
 
         # Extract parameters and process query
         params = self.agent.extract_parameters(message)
@@ -81,12 +83,10 @@ class UIHandler:
 🔄 **Executing {tool_name}...**
 """
         history.append(ChatMessage(role="assistant", content=tool_status))
-        yield history, "", gr.update(interactive=False)
+        yield history, "", gr.update(interactive=False), user_id_state
 
         # Process the regulatory query
-        results = self.agent.process_regulatory_query(
-            message, params, user_id=self.user_id
-        )
+        results = self.agent.process_regulatory_query(message, params, user_id=user_id)
         crawl_results = results["crawl_results"]
         memory_results = results["memory_results"]
 
@@ -96,7 +96,7 @@ class UIHandler:
             content=tool_status
             + f"\n\n✅ **Found {crawl_results['total_found']} regulatory updates**",
         )
-        yield history, "", gr.update(interactive=False)
+        yield history, "", gr.update(interactive=False), user_id_state
 
         # Show collapsible raw results
         if crawl_results["results"]:
@@ -130,7 +130,7 @@ class UIHandler:
             else:
                 collapsible_results = "<details><summary><strong>📋 Raw Regulatory Data</strong> - Click to expand</summary>\nNo unique regulatory updates found.\n</details>"
             history.append(ChatMessage(role="assistant", content=collapsible_results))
-            yield history, "", gr.update(interactive=False)
+            yield history, "", gr.update(interactive=False), user_id_state
 
         # Display memory results if available
         if memory_results:
@@ -148,7 +148,7 @@ Found {len(memory_results)} similar past queries in memory. Top 3 shown below:
 </details>
 """
             history.append(ChatMessage(role="assistant", content=memory_msg))
-            yield history, "", gr.update(interactive=False)
+            yield history, "", gr.update(interactive=False), user_id_state
 
         # Generate final analysis
         history.append(
@@ -156,7 +156,7 @@ Found {len(memory_results)} similar past queries in memory. Top 3 shown below:
                 role="assistant", content="📝 **Generating Compliance Report...**"
             )
         )
-        yield history, "", gr.update(interactive=False)
+        yield history, "", gr.update(interactive=False), user_id_state
 
         # Clear generating message and stream final report
         history.pop()
@@ -167,7 +167,7 @@ Found {len(memory_results)} similar past queries in memory. Top 3 shown below:
         for chunk in self.agent.generate_report(params, crawl_results, memory_results):
             streaming_content += chunk
             history[-1] = ChatMessage(role="assistant", content=streaming_content)
-            yield history, "", gr.update(interactive=False)
+            yield history, "", gr.update(interactive=False), user_id_state
 
         # Show completion time (before saving to memory)
         elapsed = time.time() - start_time
@@ -177,18 +177,18 @@ Found {len(memory_results)} similar past queries in memory. Top 3 shown below:
             )
         )
         # Re-enable input box at the end
-        yield history, "", gr.update(interactive=True)
+        yield history, "", gr.update(interactive=True), user_id_state
 
         # Save to memory in the background
         threading.Thread(
             target=self.agent.memory_tools.save_to_memory,
-            args=(self.user_id, message, streaming_content),
+            args=(user_id, message, streaming_content),
             daemon=True,
         ).start()
 
-    def delayed_clear(self):
+    def delayed_clear(self, user_id_state):
         time.sleep(0.1)  # 100ms delay to allow generator cancellation
-        return [], "", gr.update(interactive=True)
+        return [], "", gr.update(interactive=True), user_id_state
 
     def create_ui(self):
         """Create Gradio interface"""
@@ -230,6 +230,9 @@ Found {len(memory_results)} similar past queries in memory. Top 3 shown below:
                 submit = gr.Button("Send", variant="primary", scale=1, min_width=60)
                 stop = gr.Button("Stop", variant="stop", scale=1, min_width=60)
                 clear = gr.Button("Clear", scale=1, min_width=60)
+
+            # Add user_id_state for session
+            user_id_state = gr.State()
 
             # Example queries
             example_queries = [
@@ -279,13 +282,21 @@ Found {len(memory_results)} similar past queries in memory. Top 3 shown below:
 
             # Event handlers
             submit_event = msg.submit(
-                self.streaming_chatbot, [msg, chatbot], [chatbot, msg, msg]
+                self.streaming_chatbot,
+                [msg, chatbot, user_id_state],
+                [chatbot, msg, msg, user_id_state],
             )
             click_event = submit.click(
-                self.streaming_chatbot, [msg, chatbot], [chatbot, msg, msg]
+                self.streaming_chatbot,
+                [msg, chatbot, user_id_state],
+                [chatbot, msg, msg, user_id_state],
             )
             stop.click(None, cancels=[submit_event, click_event])
-            clear.click(self.delayed_clear, outputs=[chatbot, msg, msg])
+            clear.click(
+                self.delayed_clear,
+                inputs=[user_id_state],
+                outputs=[chatbot, msg, msg, user_id_state],
+            )
 
             # Footer
             gr.HTML("""
