@@ -118,21 +118,22 @@ class RegRadarAgent:
             {json.dumps(by_source, indent=2)}
             
             Include:
-            # 📋 Executive Summary
+            ---
+            # 🏛️ Executive Summary 
             (2-3 sentences overview)
             
-            # 🔍 Key Findings
+            ## 🔍 Key Findings
             • Finding 1
             • Finding 2
             • Finding 3
             
-            # ⚠️ Compliance Requirements
+            ## ⚠️ Compliance Requirements
             - List main requirements with priorities
             
-            # ✅ Action Items
+            ## ✅ Action Items
             - Specific actions with suggested timelines
             
-            # 📚 Resources
+            ## 📚 Resources
             - Links and references
             
             Use emojis, bullet points, and clear formatting. Keep it professional but readable.

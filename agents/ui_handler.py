@@ -92,7 +92,7 @@ class UIHandler:
 
 🔄 **Executing {tool_name}...**
 
-⏳ _This process may take 30-60 seconds depending on the number of webpages being crawled._
+⏳ _This process may take 40-90 seconds depending on the number of webpages being crawled._
 """
         history.append(ChatMessage(role="assistant", content=tool_status))
         yield history, "", gr.update(interactive=False), user_id_state
@@ -178,14 +178,14 @@ class UIHandler:
         if results_display:
             collapsible_results = f"""
 <details>
-<summary><strong>📋 Raw Regulatory Data</strong> - Click to expand</summary>
+<summary><strong>⚖️ Raw Regulatory Data</strong> - Click to expand</summary>
 
 {"".join(results_display)}
 
 </details>
 """
         else:
-            collapsible_results = "<details><summary><strong>📋 Raw Regulatory Data</strong> - Click to expand</summary>\nNo unique regulatory updates found.\n</details>"
+            collapsible_results = "<details><summary><strong>⚖️ Raw Regulatory Data</strong> - Click to expand</summary>\nNo unique regulatory updates found.\n</details>"
         return collapsible_results
 
     def _format_memory_results(self, memory_results):
