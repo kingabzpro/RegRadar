@@ -12,19 +12,19 @@ OPENAI_BASE_URL = "https://api.keywordsai.co/api/"
 REGULATORY_SOURCES = {
     "US": {
         "SEC": "https://www.sec.gov/news/pressreleases",
-        "FDA": "https://www.fda.gov/news-events/fda-newsroom/press-announcements",
-        "FTC": "https://www.ftc.gov/news-events/news/press-releases",
         "Federal Register": "https://www.federalregister.gov/documents/current",
+        "Federal Reserve Board": "https://www.federalreserve.gov/newsevents/pressreleases.htm",
         "CFTC": "https://www.cftc.gov/PressRoom/PressReleases",
         "FDIC": "https://www.fdic.gov/news/press-releases/",
         "FINRA": "https://www.finra.org/media-center/newsreleases",
-        "Federal Reserve Board": "https://www.federalreserve.gov/newsevents/pressreleases.htm",
+        "FDA": "https://www.fda.gov/news-events/fda-newsroom/press-announcements",
+        "FTC": "https://www.ftc.gov/news-events/news/press-releases",
     },
     "EU": {
         "ESMA": "https://www.esma.europa.eu/press-news/esma-news",
+        "European Parliament News": "https://www.europarl.europa.eu/news/en/press-room",
         "EBA": "https://www.eba.europa.eu/publications-and-media",
         "EIOPA": "https://www.eiopa.europa.eu/media/news_en",
-        "European Parliament News": "https://www.europarl.europa.eu/news/en/press-room",
         "ECB": "https://www.ecb.europa.eu/press/pr/html/index.en.html",
     },
     "Asia": {
@@ -32,9 +32,9 @@ REGULATORY_SOURCES = {
         "Reserve Bank of India (RBI)": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx",
     },
     "Global": {
-        "BIS": "https://www.bis.org/press/index.htm",
         "IMF": "https://www.imf.org/en/News",
         "World Bank": "https://www.worldbank.org/en/news/all",
+        "BIS": "https://www.bis.org/press/index.htm",
         "OECD": "https://www.oecd.org/newsroom/",
     },
 }

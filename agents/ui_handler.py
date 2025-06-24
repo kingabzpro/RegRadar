@@ -81,6 +81,8 @@ class UIHandler:
 - Keywords: {params["keywords"]}
 
 🔄 **Executing {tool_name}...**
+
+⏳ _This process may take 30-60 seconds depending on the number of webpages being crawled._
 """
         history.append(ChatMessage(role="assistant", content=tool_status))
         yield history, "", gr.update(interactive=False), user_id_state
@@ -299,8 +301,8 @@ Found {len(memory_results)} similar past queries in memory. Top 3 shown below:
             # Footer
             gr.HTML("""
             <div style="text-align: center; padding: 20px; color: #666; font-size: 0.9rem;">
-                <p>RegRadar monitors regulatory updates from SEC, FDA, FTC, EU Commission, and more.</p>
-                <p>All analysis is AI-generated. Always verify with official sources.</p>
+                <p>RegRadar monitors regulatory updates from the SEC, EU Commission, and other leading global authorities.</p>
+                <p>All analyses are AI-generated. Please verify findings with official regulatory sources.</p>
             </div>
             """)
 
