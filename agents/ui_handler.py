@@ -178,14 +178,14 @@ class UIHandler:
         if results_display:
             collapsible_results = f"""
 <details>
-<summary><strong>⚖️ Raw Regulatory Data</strong> - Click to expand</summary>
+<summary><strong>🗃️ Raw Regulatory Data</strong> - Click to expand</summary>
 
 {"".join(results_display)}
 
 </details>
 """
         else:
-            collapsible_results = "<details><summary><strong>⚖️ Raw Regulatory Data</strong> - Click to expand</summary>\nNo unique regulatory updates found.\n</details>"
+            collapsible_results = "<details><summary><strong>🗃️ Raw Regulatory Data</strong> - Click to expand</summary>\nNo unique regulatory updates found.\n</details>"
         return collapsible_results
 
     def _format_memory_results(self, memory_results):
