@@ -119,7 +119,7 @@ class RegRadarAgent:
             
             Include:
             ---
-            # 🏛️ Executive Summary 
+            ## 🏛️ Executive Summary 
             (2-3 sentences overview)
             
             ## 🔍 Key Findings
