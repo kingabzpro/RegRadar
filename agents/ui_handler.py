@@ -6,7 +6,6 @@ import gradio as gr
 from gradio import ChatMessage
 
 from agents.reg_radar import RegRadarAgent
-from config.settings import AVATAR_IMAGES
 from tools.llm import stream_llm
 
 
@@ -37,26 +36,37 @@ class UIHandler:
         is_regulatory = self.agent.is_regulatory_query(message)
 
         if not is_regulatory:
-            # General chat
-            history.append(
-                ChatMessage(role="assistant", content="💬 Processing general query...")
-            )
-            yield history, "", gr.update(interactive=False), user_id_state
-
-            # Clear processing message and stream response
-            history.pop()
-            streaming_content = ""
-            history.append(ChatMessage(role="assistant", content=""))
-
-            for chunk in stream_llm(message):
-                streaming_content += chunk
-                history[-1] = ChatMessage(role="assistant", content=streaming_content)
-                yield history, "", gr.update(interactive=False), user_id_state
-
-            # Re-enable input box at the end
-            yield history, "", gr.update(interactive=True), user_id_state
+            yield from self._handle_general_chat(message, history, user_id_state)
             return
 
+        yield from self._handle_regulatory_chat(
+            message, history, user_id_state, user_id, start_time
+        )
+
+    def _handle_general_chat(self, message, history, user_id_state):
+        """Handle general (non-regulatory) chat flow."""
+        history.append(
+            ChatMessage(role="assistant", content="💬 Processing general query...")
+        )
+        yield history, "", gr.update(interactive=False), user_id_state
+
+        # Clear processing message and stream response
+        history.pop()
+        streaming_content = ""
+        history.append(ChatMessage(role="assistant", content=""))
+
+        for chunk in stream_llm(message):
+            streaming_content += chunk
+            history[-1] = ChatMessage(role="assistant", content=streaming_content)
+            yield history, "", gr.update(interactive=False), user_id_state
+
+        # Re-enable input box at the end
+        yield history, "", gr.update(interactive=True), user_id_state
+
+    def _handle_regulatory_chat(
+        self, message, history, user_id_state, user_id, start_time
+    ):
+        """Handle regulatory chat flow."""
         # Show tool detection
         tool_key, tool_name = self.agent.determine_intended_tool(message)
 
@@ -102,51 +112,13 @@ class UIHandler:
 
         # Show collapsible raw results
         if crawl_results["results"]:
-            # Format results for display, remove duplicates by URL
-            seen_urls = set()
-            results_display = []
-            count = 0
-            for result in crawl_results["results"]:
-                url = result["url"]
-                if url in seen_urls:
-                    continue
-                seen_urls.add(url)
-                title = result["title"][:100] if result["title"] else "No Title"
-                count += 1
-                results_display.append(f"""
-**{count}. {result["source"]}**
-- Title: {title}...
-- URL: {url}
-""")
-            if results_display:
-                collapsible_results = f"""
-<details>
-<summary><strong>📋 Raw Regulatory Data</strong> - Click to expand</summary>
-
-{"".join(results_display)}
-
-</details>
-"""
-            else:
-                collapsible_results = "<details><summary><strong>📋 Raw Regulatory Data</strong> - Click to expand</summary>\nNo unique regulatory updates found.\n</details>"
+            collapsible_results = self._format_crawl_results(crawl_results["results"])
             history.append(ChatMessage(role="assistant", content=collapsible_results))
             yield history, "", gr.update(interactive=False), user_id_state
 
         # Display memory results if available
         if memory_results:
-            top_memories = memory_results[:3]
-            memory_details = ""
-            for i, mem in enumerate(top_memories, 1):
-                memory_text = mem.get("memory", "N/A")
-                memory_details += f"\n**{i}. Memory:** {memory_text[:300]}...\n"
-            memory_msg = f"""
-<details>
-<summary><strong>💾 Related Past Queries</strong> - Click to expand</summary>
-
-Found {len(memory_results)} similar past queries in memory. Top 3 shown below:
-{memory_details}
-</details>
-"""
+            memory_msg = self._format_memory_results(memory_results)
             history.append(ChatMessage(role="assistant", content=memory_msg))
             yield history, "", gr.update(interactive=False), user_id_state
 
@@ -186,124 +158,53 @@ Found {len(memory_results)} similar past queries in memory. Top 3 shown below:
             daemon=True,
         ).start()
 
+    def _format_crawl_results(self, results):
+        """Format crawl results for display, removing duplicates by URL."""
+        seen_urls = set()
+        results_display = []
+        count = 0
+        for result in results:
+            url = result["url"]
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+            title = result["title"][:100] if result["title"] else "No Title"
+            count += 1
+            results_display.append(f"""
+**{count}. {result["source"]}**
+- Title: {title}...
+- URL: {url}
+""")
+        if results_display:
+            collapsible_results = f"""
+<details>
+<summary><strong>📋 Raw Regulatory Data</strong> - Click to expand</summary>
+
+{"".join(results_display)}
+
+</details>
+"""
+        else:
+            collapsible_results = "<details><summary><strong>📋 Raw Regulatory Data</strong> - Click to expand</summary>\nNo unique regulatory updates found.\n</details>"
+        return collapsible_results
+
+    def _format_memory_results(self, memory_results):
+        """Format memory results for display."""
+        top_memories = memory_results[:3]
+        memory_details = ""
+        for i, mem in enumerate(top_memories, 1):
+            memory_text = mem.get("memory", "N/A")
+            memory_details += f"\n**{i}. Memory:** {memory_text[:300]}...\n"
+        memory_msg = f"""
+<details>
+<summary><strong>💾 Related Past Queries</strong> - Click to expand</summary>
+
+Found {len(memory_results)} similar past queries in memory. Top 3 shown below:
+{memory_details}
+</details>
+"""
+        return memory_msg
+
     def delayed_clear(self, user_id_state):
         time.sleep(0.1)  # 100ms delay to allow generator cancellation
         return [], "", gr.update(interactive=True), user_id_state
-
-    def create_ui(self):
-        """Create Gradio interface"""
-        with gr.Blocks(
-            title="RegRadar - AI Regulatory Compliance Assistant",
-            theme=gr.themes.Soft(),
-            css="""
-            .tool-status { 
-                background-color: #f0f4f8; 
-                padding: 10px; 
-                border-radius: 5px; 
-                margin: 10px 0;
-            }
-            """,
-        ) as demo:
-            # Header
-            gr.HTML("""
-            <center>
-                <h1>🛡️ RegRadar</h1>
-                AI-powered regulatory compliance assistant that monitors global regulations
-            </center>
-            """)
-
-            # Main chat interface
-            chatbot = gr.Chatbot(
-                height=400,
-                type="messages",
-                avatar_images=AVATAR_IMAGES,
-                show_copy_button=True,
-            )
-
-            with gr.Row(equal_height=True):
-                msg = gr.Textbox(
-                    placeholder="Ask about regulatory updates, compliance requirements, or any industry regulations...",
-                    show_label=False,
-                    scale=18,
-                    autofocus=True,
-                )
-                submit = gr.Button("Send", variant="primary", scale=1, min_width=60)
-                stop = gr.Button("Stop", variant="stop", scale=1, min_width=60)
-                clear = gr.Button("Clear", scale=1, min_width=60)
-
-            # Add user_id_state for session
-            user_id_state = gr.State()
-
-            # Example queries
-            example_queries = [
-                "Show me the latest SEC regulations for fintech",
-                "What are the new data privacy rules in the EU?",
-                "Any updates on ESG compliance for energy companies?",
-                "Scan for healthcare regulations in the US",
-                "What are the global trends in AI regulation?",
-            ]
-
-            gr.Examples(examples=example_queries, inputs=msg, label="Example Queries")
-
-            # Tool information panel
-            with gr.Accordion("🛠️ Available Tools", open=False):
-                gr.Markdown("""
-                ### RegRadar uses these intelligent tools:
-                
-                **🧠 Query Type Detection**
-                - Automatically detects if your message is a regulatory compliance query or a general question
-                - Selects the appropriate tools and response style based on your intent
-                
-                **📩 Information Extraction**
-                - Extracts key details (industry, region, keywords) from your command
-                - Ensures accurate and relevant regulatory analysis
-                
-                **🔍 Regulatory Web Crawler**
-                - Crawls official regulatory websites (SEC, FDA, FTC, etc.)
-                - Searches for recent updates and compliance changes
-                - Focuses on last 30 days of content
-                
-                **🌐 Regulatory Search Engine**
-                - Searches across multiple sources for regulatory updates
-                - Finds industry-specific compliance information
-                - Aggregates results from various regulatory bodies
-                
-                **💾 Memory System**
-                - Remembers past queries and responses
-                - Learns from your compliance interests
-                - Provides context from previous interactions
-                - Each session creates a new user for personalization
-                
-                **🤖 AI Analysis Engine**
-                - Analyzes and summarizes regulatory findings
-                - Generates actionable compliance recommendations
-                - Creates executive summaries and action items
-                """)
-
-            # Event handlers
-            submit_event = msg.submit(
-                self.streaming_chatbot,
-                [msg, chatbot, user_id_state],
-                [chatbot, msg, msg, user_id_state],
-            )
-            click_event = submit.click(
-                self.streaming_chatbot,
-                [msg, chatbot, user_id_state],
-                [chatbot, msg, msg, user_id_state],
-            )
-            stop.click(None, cancels=[submit_event, click_event])
-            clear.click(
-                self.delayed_clear,
-                inputs=[user_id_state],
-                outputs=[chatbot, msg, msg, user_id_state],
-            )
-
-            # Footer
-            gr.HTML("""
-            <div style="text-align: center; padding: 20px; color: #666; font-size: 0.9rem;">
-                <p>RegRadar monitors regulatory updates from the SEC, EU Commission, and other leading global authorities.</p>
-                <p>All analyses are AI-generated. Please verify findings with official regulatory sources.</p>
-            </div>
-            """)
-
-        return demo

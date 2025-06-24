@@ -1,9 +1,12 @@
-from typing import List, Dict
+from typing import Dict, List
+
 from mem0 import MemoryClient
+
 from config.settings import MEM0_API_KEY
 
 # Initialize memory client
 mem0_client = MemoryClient(api_key=MEM0_API_KEY)
+
 
 class MemoryTools:
     def save_to_memory(self, user_id: str, query: str, response: str):
@@ -26,6 +29,5 @@ class MemoryTools:
         try:
             memories = mem0_client.search(query=query, user_id=user_id, limit=3)
             return memories
-        except:
+        except Exception:
             return []
-
