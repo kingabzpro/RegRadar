@@ -116,8 +116,6 @@ class UIHandler:
 - Title: {title}...
 - URL: {url}
 """)
-                if count >= 5:
-                    break
             if results_display:
                 collapsible_results = f"""
 <details>

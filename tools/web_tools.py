@@ -30,7 +30,7 @@ class WebTools:
         all_results = []
 
         crawl_instructions = (
-            f"{industry} regulatory updates, compliance, {keywords}, 30d"
+            f"Recent {industry} {region} regulatory updates: {keywords}, 30 days"
         )
 
         # Crawl regulatory sites

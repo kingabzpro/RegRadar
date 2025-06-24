@@ -5,7 +5,11 @@ This application monitors and analyzes regulatory updates, providing
 compliance guidance for various industries and regions.
 """
 
+import warnings
+
 from agents.ui_handler import UIHandler
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 def create_demo():
