@@ -72,9 +72,7 @@ def create_demo():
 
         # Tool information panel
         with gr.Accordion("🛠️ Available Tools", open=False):
-            gr.Markdown("""
-            ### RegRadar uses these intelligent tools:
-            
+            gr.Markdown("""            
             **🧠 Query Type Detection**
             - Automatically detects if your message is a regulatory compliance query or a general question
             - Selects the appropriate tools and response style based on your intent
