@@ -15,7 +15,7 @@ short_description: RegRadar watches the worlds regulators so you dont have to.
 
 RegRadar is an AI-powered regulatory compliance assistant that monitors global regulations so you don't have to. It helps compliance professionals, legal teams, and businesses stay up-to-date with the latest regulatory changes across industries and regions.
 
-[![RegRadar (100 Agents Hackathon)](./images/image.png)](https://youtu.be/0l9e0WlMsQQ)
+[![RegRadar (100 Agents Hackathon)](./images/image.png)](https://www.youtube.com/watch?v=v0lZMx_Yt2I)
 
 ## 🚀 Features
 - **Automatic Query Type Detection**: Understands if your message is a regulatory compliance query or a general question, and selects the right tools.
