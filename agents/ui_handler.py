@@ -70,31 +70,46 @@ class UIHandler:
         # Show tool detection
         tool_key, tool_name = self.agent.determine_intended_tool(message)
 
-        # Initial processing message with tool info
-        status_msg = f"🔍 Using **{tool_name}** to analyze your query (estimated 10-20 seconds)..."
-        history.append(ChatMessage(role="assistant", content=status_msg))
+        # Initial processing message with tool info (collapsible)
+        status_msg = (
+            f"Using **{tool_name}** to analyze your query (estimated 10-20 seconds)..."
+        )
+        history.append(
+            ChatMessage(
+                role="assistant",
+                content=status_msg,
+                metadata={"title": f"🛠️ Tool Selected: {tool_name}"},
+            )
+        )
         yield history, "", gr.update(interactive=False), user_id_state
 
         # Extract parameters and process query
         params = self.agent.extract_parameters(message)
 
-        # Clear status and show parameter extraction
+        # Clear status and show parameter extraction (collapsible)
         history.pop()
+        param_msg = f"- Industry: {params['industry']}\n- Region: {params['region']}\n- Keywords: {params['keywords']}"
+        history.append(
+            ChatMessage(
+                role="assistant",
+                content=param_msg,
+                metadata={"title": "📍Parameter Extraction"},
+            )
+        )
+        yield history, "", gr.update(interactive=False), user_id_state
 
-        # Show tool execution steps
+        # Show tool execution steps (collapsible)
         tool_status = f"""
-🛠️ **Tool Execution Status**
-
-📍 **Parameters Extracted:**
-- Industry: {params["industry"]}
-- Region: {params["region"]}
-- Keywords: {params["keywords"]}
-
-🔄 **Executing {tool_name}...**
-
+**Executing {tool_name}...**
 ⏳ _This process may take 40-90 seconds depending on the number of webpages being crawled._
 """
-        history.append(ChatMessage(role="assistant", content=tool_status))
+        history.append(
+            ChatMessage(
+                role="assistant",
+                content=tool_status,
+                metadata={"title": "📢 Tool Execution Status"},
+            )
+        )
         yield history, "", gr.update(interactive=False), user_id_state
 
         # Process the regulatory query
@@ -102,27 +117,31 @@ class UIHandler:
         crawl_results = results["crawl_results"]
         memory_results = results["memory_results"]
 
-        # Update with results count
-        history[-1] = ChatMessage(
-            role="assistant",
-            content=tool_status
-            + f"\n\n✅ **Found {crawl_results['total_found']} regulatory updates**",
-        )
-        yield history, "", gr.update(interactive=False), user_id_state
-
         # Show collapsible raw results
         if crawl_results["results"]:
             collapsible_results = self._format_crawl_results(crawl_results["results"])
-            history.append(ChatMessage(role="assistant", content=collapsible_results))
+            history.append(
+                ChatMessage(
+                    role="assistant",
+                    content=collapsible_results,
+                    metadata={"title": "🌐 Raw Regulatory Data", "status": "done"},
+                )
+            )
             yield history, "", gr.update(interactive=False), user_id_state
 
         # Display memory results if available
         if memory_results:
             memory_msg = self._format_memory_results(memory_results)
-            history.append(ChatMessage(role="assistant", content=memory_msg))
+            history.append(
+                ChatMessage(
+                    role="assistant",
+                    content=memory_msg,
+                    metadata={"title": "💾 Past Memories", "status": "done"},
+                )
+            )
             yield history, "", gr.update(interactive=False), user_id_state
 
-        # Generate final analysis
+        # Generate final analysis (no metadata, standard message)
         history.append(
             ChatMessage(
                 role="assistant", content="📝 **Generating Compliance Report...**"
@@ -141,12 +160,11 @@ class UIHandler:
             history[-1] = ChatMessage(role="assistant", content=streaming_content)
             yield history, "", gr.update(interactive=False), user_id_state
 
-        # Show completion time (before saving to memory)
+        # Show completion time appended to the final report (no metadata)
         elapsed = time.time() - start_time
-        history.append(
-            ChatMessage(
-                role="assistant", content=f"✨ **Analysis complete** ({elapsed:.1f}s)"
-            )
+        history[-1] = ChatMessage(
+            role="assistant",
+            content=streaming_content + f"\n\n✨ Analysis complete ({elapsed:.1f}s).",
         )
         # Re-enable input box at the end
         yield history, "", gr.update(interactive=True), user_id_state
@@ -176,16 +194,10 @@ class UIHandler:
 - URL: {url}
 """)
         if results_display:
-            collapsible_results = f"""
-<details>
-<summary><strong>🗃️ Raw Regulatory Data</strong> - Click to expand</summary>
-
-{"".join(results_display)}
-
-</details>
-"""
+            # Only return the content, let Gradio's metadata title handle the dropdown
+            collapsible_results = "\n".join(results_display)
         else:
-            collapsible_results = "<details><summary><strong>🗃️ Raw Regulatory Data</strong> - Click to expand</summary>\nNo unique regulatory updates found.\n</details>"
+            collapsible_results = "No unique regulatory updates found."
         return collapsible_results
 
     def _format_memory_results(self, memory_results):
@@ -195,14 +207,7 @@ class UIHandler:
         for i, mem in enumerate(top_memories, 1):
             memory_text = mem.get("memory", "N/A")
             memory_details += f"\n**{i}. Memory:** {memory_text[:300]}...\n"
-        memory_msg = f"""
-<details>
-<summary><strong>💾 Related Past Queries</strong> - Click to expand</summary>
-
-Found {len(memory_results)} similar past queries in memory. Top 3 shown below:
-{memory_details}
-</details>
-"""
+        memory_msg = f"Found {len(memory_results)} similar past queries in memory. \nTop 3 shown below:\n{memory_details}"
         return memory_msg
 
     def delayed_clear(self, user_id_state):
