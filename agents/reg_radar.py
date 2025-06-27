@@ -30,16 +30,71 @@ class RegRadarAgent:
 
     def extract_parameters(self, message: str) -> Dict:
         """Extract industry, region, and keywords from the query using LLM (no function calling)."""
+        # Expanded lists for industries and regions
+        industries = [
+            "fintech",
+            "healthcare",
+            "energy",
+            "general",
+            "IT",
+            "AI",
+            "manufacturing",
+            "telecommunications",
+            "transportation",
+            "education",
+            "retail",
+            "finance",
+            "insurance",
+            "pharmaceuticals",
+            "agriculture",
+            "media",
+            "entertainment",
+            "legal",
+            "real estate",
+            "construction",
+            "logistics",
+            "food & beverage",
+            "automotive",
+            "aerospace",
+            "defense",
+        ]
+        regions = [
+            "US",
+            "EU",
+            "UK",
+            "Asia",
+            "Global",
+            "Africa",
+            "Middle East",
+            "South America",
+            "North America",
+            "Australia",
+            "Canada",
+            "China",
+            "India",
+            "Japan",
+            "Russia",
+            "Brazil",
+            "Mexico",
+            "Germany",
+            "France",
+            "Italy",
+            "Spain",
+            "Nordics",
+            "Southeast Asia",
+        ]
+        industries_str = ", ".join(industries)
+        regions_str = ", ".join(regions)
         prompt = f"""
         Extract the following information from the user query below and return ONLY a valid JSON object with keys: industry, region, keywords.
-        - industry: The industry mentioned or implied (e.g., fintech, healthcare, energy, general).
-        - region: The region or country explicitly mentioned (e.g., US, EU, UK, Asia, Global).
+        - industry: The industry mentioned or implied. Choose from: {industries_str} (or specify if different).
+        - region: The region or country explicitly mentioned. Choose from: {regions_str} (or specify if different).
         - keywords: The most important regulatory topics or terms, separated by commas. Do NOT include generic words or verbs.
         
         User query: {message}
         
         Example output:
-        {{"industry": "fintech", "region": "US", "keywords": "SEC regulations"}}
+        {{"industry": "AI", "region": "EU", "keywords": "AI Act, data privacy"}}
         """
         response = call_llm(prompt)
         try:
