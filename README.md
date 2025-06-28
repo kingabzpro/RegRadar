@@ -4,7 +4,7 @@ emoji: 🛡️
 colorFrom: blue
 colorTo: indigo
 sdk: gradio
-sdk_version: 5.34.2
+sdk_version: 5.35.0
 app_file: app.py
 pinned: true
 license: apache-2.0
@@ -110,7 +110,3 @@ RegRadar uses the KeywordsAI platform, which requires an OpenAI API key for LLM 
 - **OpenAI/KeywordsAI LLM**: For natural language understanding, information extraction, summarization, and LLM tracking.
 - **Tavily**: For regulatory web crawling and search.
 - **Mem0**: For session-based memory and personalization.
-
-
-
-
