@@ -3,6 +3,10 @@ RegRadar - AI Regulatory Compliance Assistant
 
 This application monitors and analyzes regulatory updates, providing
 compliance guidance for various industries and regions.
+
+New Feature: Improved Regulatory Query Detection
+- Only new regulatory/compliance/update questions are treated as regulatory.
+- Follow-up or general questions are handled as general chat, not as regulatory queries.
 """
 
 import warnings
@@ -74,12 +78,15 @@ def create_demo():
         with gr.Accordion("🛠️ Available Tools", open=False):
             gr.Markdown("""            
             **🧠 Query Type Detection**
+            - Now distinguishes between new regulatory/compliance/update questions and follow-up or general questions.
+            - Only new regulatory questions trigger compliance workflows; follow-ups and general queries are handled as general chat.
             - Automatically detects if your message is a regulatory compliance query or a general question
             - Selects the appropriate tools and response style based on your intent
             
             **📩 Information Extraction**
-            - Extracts key details (industry, region, keywords) from your command
-            - Ensures accurate and relevant regulatory analysis
+            - Extracts key details (industry, region, keywords, and report type) from your command
+            - Determines if you want a quick answer, summary, or full report, and adapts the response accordingly
+            - Shows the detected report type in the parameter extraction step
             
             **🔍 Regulatory Web Crawler**
             - Crawls official regulatory websites (SEC, FDA, FTC, etc.)

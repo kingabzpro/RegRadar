@@ -18,12 +18,26 @@ RegRadar is an AI-powered regulatory compliance assistant that monitors global r
 [![RegRadar (100 Agents Hackathon)](./images/image.png)](https://www.youtube.com/watch?v=v0lZMx_Yt2I)
 
 ## 🚀 Features
+- **Improved Regulatory Query Detection**: Now distinguishes between new regulatory/compliance/update questions and follow-up or general questions. Only new regulatory questions trigger compliance workflows; follow-ups and general queries are handled as general chat.
 - **Automatic Query Type Detection**: Understands if your message is a regulatory compliance query or a general question, and selects the right tools.
-- **Information Extraction**: Extracts key details (industry, region, keywords) from your queries for precise analysis.
+- **Information Extraction**: Extracts key details (industry, region, keywords, and report type) from your queries for precise analysis.
+- **Smart Report Type Detection**: Automatically determines if you want a quick answer, a summary, or a full compliance report based on your query. The detected report type is shown in the parameter extraction step and controls the style and length of the AI's response.
 - **Regulatory Web Crawler**: Crawls official regulatory websites (e.g., SEC, FDA, FTC, ESMA, BIS) for recent updates and compliance changes (last 30 days).
 - **Regulatory Search Engine**: Searches across multiple sources for industry-specific compliance information and aggregates results.
 - **Memory System**: Remembers past queries and responses, personalizing results for each session/user.
 - **AI Analysis Engine**: Summarizes findings and generates actionable compliance recommendations and executive summaries.
+
+## 🚦 How It Works
+When you submit a query, RegRadar:
+1. Detects if your message is a **new** regulatory/compliance question (not a follow-up or general question).
+2. If yes, extracts industry, region, keywords, and report type.
+3. If no, processes your message as a general or follow-up query.
+4. Runs the appropriate regulatory search/crawl and memory lookup if regulatory.
+5. Shows the extracted parameters, including the report type, in the UI for transparency.
+5. Generates a response matching your intent:
+   - **Quick**: Direct, brief answer to specific questions.
+   - **Summary**: Short summary for summary requests.
+   - **Full**: Comprehensive report (default for vague or broad queries).
 
 ## 🏁 Getting Started
 

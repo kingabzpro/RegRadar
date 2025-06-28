@@ -44,7 +44,7 @@ class UIHandler:
         )
 
     def _handle_general_chat(self, message, history, user_id_state):
-        """Handle general (non-regulatory) chat flow."""
+        """Handle general (non-regulatory) chat flow with context from conversation history."""
         history.append(
             ChatMessage(role="assistant", content="💬 Processing general query...")
         )
@@ -55,7 +55,32 @@ class UIHandler:
         streaming_content = ""
         history.append(ChatMessage(role="assistant", content=""))
 
-        for chunk in stream_llm(message):
+        # Gather last 5 user/assistant messages as context
+        context_msgs = []
+        for msg in history[-10:]:
+            if isinstance(msg, dict):
+                role = msg.get("role")
+                content = msg.get("content")
+            else:
+                role = getattr(msg, "role", None)
+                content = getattr(msg, "content", None)
+            if role in ("user", "assistant"):
+                context_msgs.append(f"{role.capitalize()}: {content}")
+        context_str = "\n".join(context_msgs[-5:])
+
+        # Compose prompt with context
+        if context_str:
+            prompt = f"""
+You are an expert assistant. Here is the recent conversation history:
+{context_str}
+
+Now answer the user's latest message:
+{message}
+"""
+        else:
+            prompt = message
+
+        for chunk in stream_llm(prompt):
             streaming_content += chunk
             history[-1] = ChatMessage(role="assistant", content=streaming_content)
             yield history, "", gr.update(interactive=False), user_id_state
@@ -88,7 +113,7 @@ class UIHandler:
 
         # Clear status and show parameter extraction (collapsible)
         history.pop()
-        param_msg = f"- Industry: {params['industry']}\n- Region: {params['region']}\n- Keywords: {params['keywords']}"
+        param_msg = self.agent.format_parameter_extraction(params)
         history.append(
             ChatMessage(
                 role="assistant",

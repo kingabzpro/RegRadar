@@ -29,7 +29,7 @@ class RegRadarAgent:
             return "search", "Regulatory Search"
 
     def extract_parameters(self, message: str) -> Dict:
-        """Extract industry, region, and keywords from the query using LLM (no function calling)."""
+        """Extract industry, region, keywords, and report_type from the query using LLM (no function calling)."""
         # Expanded lists for industries and regions
         industries = [
             "fintech",
@@ -86,34 +86,93 @@ class RegRadarAgent:
         industries_str = ", ".join(industries)
         regions_str = ", ".join(regions)
         prompt = f"""
-        Extract the following information from the user query below and return ONLY a valid JSON object with keys: industry, region, keywords.
+        Extract the following information from the user query below and return ONLY a valid JSON object with keys: industry, region, keywords, report_type.
         - industry: The industry mentioned or implied. Choose from: {industries_str} (or specify if different).
         - region: The region or country explicitly mentioned. Choose from: {regions_str} (or specify if different).
         - keywords: The most important regulatory topics or terms, separated by commas. Do NOT include generic words or verbs.
+        - report_type: Only set to 'quick' if the user is asking for a highly specific fact, date, number, or detail (e.g., "When did the GDPR take effect?", "What is the fine for X?"). For general regulatory questions (even if phrased as 'what are', 'what is', etc.), or if the user asks for a full report or the question is vague, set to 'full'. Use 'summary' only if the user explicitly asks for a summary.
         
         User query: {message}
         
-        Example output:
-        {{"industry": "AI", "region": "EU", "keywords": "AI Act, data privacy"}}
+        Example outputs:
+        {{"industry": "AI", "region": "EU", "keywords": "AI Act, data privacy", "report_type": "summary"}}
+        {{"industry": "fintech", "region": "US", "keywords": "SEC regulations", "report_type": "quick"}}
+        {{"industry": "healthcare", "region": "Global", "keywords": "HIPAA, patient data", "report_type": "full"}}
         """
         response = call_llm(prompt)
         try:
             params = json.loads(response)
         except Exception:
-            # fallback: return empty/defaults if parsing fails
-            params = {"industry": "General", "region": "US", "keywords": ""}
+            # fallback: use heuristics for report_type
+            msg_lower = message.lower()
+            if any(
+                word in msg_lower for word in ["summary", "summarize", "short summary"]
+            ):
+                report_type = "summary"
+            elif any(
+                word in msg_lower for word in ["report", "full report", "comprehensive"]
+            ):
+                report_type = "full"
+            elif any(
+                word in msg_lower
+                for word in [
+                    "when is",
+                    "who is",
+                    "how much",
+                    "how many",
+                    "specific",
+                    "exact",
+                    "detail",
+                    "quick",
+                    "brief",
+                    "answer",
+                    "fact",
+                    "date",
+                    "number",
+                    "tell me more",
+                    "give me more",
+                    "more details",
+                    "more info",
+                    "expand on",
+                    "elaborate on",
+                ]
+            ):
+                report_type = "quick"
+            else:
+                report_type = "full"
+            params = {
+                "industry": "General",
+                "region": "US",
+                "keywords": "",
+                "report_type": report_type,
+            }
+        # Ensure report_type is always present and valid
+        if params.get("report_type") not in ["quick", "summary", "full"]:
+            params["report_type"] = "full"
         return params
 
+    def format_parameter_extraction(self, params: dict) -> str:
+        """Format the parameter extraction display, including report type."""
+        return (
+            f"Industry: {params.get('industry', 'N/A')}\n"
+            f"Region: {params.get('region', 'N/A')}\n"
+            f"Keywords: {params.get('keywords', 'N/A')}\n"
+            f"Report Type: {params.get('report_type', 'full').capitalize()}"
+        )
+
     def is_regulatory_query(self, message: str) -> bool:
-        """Detect if this is a regulatory, compliance, or update-related question"""
+        """Detect if this is a new regulatory, compliance, or update-related question (not a follow-up or general question).
+        Returns True only if the message is a new regulatory/compliance/update question. Returns False for follow-up regulatory or general questions.
+        """
         intent_prompt = f"""
-        Is the following user message a regulatory, compliance, or update-related question (yes/no)?
+        Is the following user message a new regulatory, compliance, or update-related question? Respond 'yes' ONLY if the user is asking a new regulatory, compliance, or update-related question, not a follow-up or general question. If the message is a follow-up to a previous regulatory discussion (e.g., 'Can you expand on that?', 'What about healthcare?'), or a general/non-regulatory question, respond 'no'.
+        
         Message: {message}
         Respond with only 'yes' or 'no'.
         """
 
         intent = call_llm(intent_prompt).strip().lower()
-        return not intent.startswith("n")
+        return intent.startswith("y")
 
     def process_regulatory_query(
         self, message: str, params: dict = None, user_id: str = "user"
@@ -139,10 +198,12 @@ class RegRadarAgent:
             "params": params,
             "crawl_results": crawl_results,
             "memory_results": memory_results,
+            "report_type": params.get("report_type", "full"),
         }
 
     def generate_report(self, params, crawl_results, memory_results=None):
-        """Generate a comprehensive regulatory report, including memory context if available"""
+        """Generate a regulatory report (quick, summary, or full) including memory context if available"""
+        report_type = params.get("report_type", "full")
         memory_context = ""
         if memory_results:
             # Format memory results for inclusion in the prompt (limit to 3 for brevity)
@@ -166,34 +227,49 @@ class RegRadarAgent:
                     by_source[source] = []
                 by_source[source].append(result)
 
-            summary_prompt = f"""
-            Create a comprehensive regulatory compliance report for {params["industry"]} industry in {params["region"]} region.
-            {memory_context}
-            Analyze these regulatory updates:
-            {json.dumps(by_source, indent=2)}
-            
-            Include:
-            
-            ---
-            
-            ## 🏛️ Executive Summary 
-            (2-3 sentences overview)
+            if report_type == "quick":
+                summary_prompt = f"""
+                Provide a very brief (1-2 sentences) answer with the most important regulatory update for {params["industry"]} in {params["region"]} (keywords: {params["keywords"]}).
+                {memory_context}
+                Data:
+                {json.dumps(by_source, indent=2)}
+                """
+            elif report_type == "summary":
+                summary_prompt = f"""
+                Provide a concise summary (1 short paragraph) of the most important regulatory updates for {params["industry"]} in {params["region"]} (keywords: {params["keywords"]}).
+                {memory_context}
+                Data:
+                {json.dumps(by_source, indent=2)}
+                """
+            else:  # full
+                summary_prompt = f"""
+                Create a comprehensive regulatory compliance report for {params["industry"]} industry in {params["region"]} region.
+                {memory_context}
+                Analyze these regulatory updates:
+                {json.dumps(by_source, indent=2)}
+                
+                Include:
+                
+                ---
+                
+                ## 🏛️ Executive Summary 
+                (2-3 sentences overview)
 
-            ## 🔍 Key Findings
-            • Finding 1
-            • Finding 2
-            • Finding 3
+                ## 🔍 Key Findings
+                • Finding 1
+                • Finding 2
+                • Finding 3
 
-            ## 🛡️ Compliance Requirements
-            - List main requirements with priorities
+                ## 🛡️ Compliance Requirements
+                - List main requirements with priorities
 
-            ## ✅ Action Items
-            - Specific actions with suggested timelines
+                ## ✅ Action Items
+                - Specific actions with suggested timelines
 
-            ## 📚 Resources
-            - Links and references
-            
-            Use emojis, bullet points, and clear formatting. Keep it professional but readable.
-            """
+                ## 📚 Resources
+                - Links and references
+                
+                Use emojis, bullet points, and clear formatting. Keep it professional but readable.
+                """
 
         return stream_llm(summary_prompt)
