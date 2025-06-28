@@ -166,19 +166,34 @@ class RegRadarAgent:
         """
         msg_lower = message.lower()
         # Always treat as new if explicitly asking for a full report or summary
-        if ("generate" in msg_lower) or ("full report" in msg_lower) or (
-            "summary" in msg_lower
+        if (
+            ("generate" in msg_lower)
+            or ("full report" in msg_lower)
+            or ("summary" in msg_lower)
         ):
             return True
 
-        # Fallback: use LLM intent logic
+        # Phrases that indicate a follow-up rather than a new regulatory query
+        followup_phrases = [
+            "when is",
+            "who is",
+            "how much",
+            "how many",
+            "tell me more",
+            "give me more",
+            "more details",
+            "more info",
+            "expand on",
+            "elaborate on",
+        ]
+
+        # Fallback: use LLM intent logic, but inform LLM about follow-up phrases
         intent_prompt = f"""
-        Is the following user message a new regulatory, compliance, or update-related question? Respond 'yes' ONLY if the user is asking a new regulatory, compliance, or update-related question, not a follow-up or general question. If the message is a follow-up to a previous regulatory discussion (e.g., 'Can you expand on that?', 'What about healthcare?'), or a general/non-regulatory question, respond 'no'.
+        Is the following user message a new regulatory, compliance, or update-related question? Respond 'yes' ONLY if the user is asking a new regulatory, compliance, or update-related question, not a follow-up or general question. If the message is a follow-up to a previous regulatory discussion (e.g., contains phrases like {", ".join(followup_phrases)}), or a general/non-regulatory question, respond 'no'.
         
         Message: {message}
         Respond with only 'yes' or 'no'.
         """
-
         intent = call_llm(intent_prompt).strip().lower()
         return intent.startswith("y")
 
