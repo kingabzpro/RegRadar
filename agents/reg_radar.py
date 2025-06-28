@@ -164,6 +164,14 @@ class RegRadarAgent:
         """Detect if this is a new regulatory, compliance, or update-related question (not a follow-up or general question).
         Returns True only if the message is a new regulatory/compliance/update question. Returns False for follow-up regulatory or general questions.
         """
+        msg_lower = message.lower()
+        # Always treat as new if explicitly asking for a full report or summary
+        if ("generate" in msg_lower) or ("full report" in msg_lower) or (
+            "summary" in msg_lower
+        ):
+            return True
+
+        # Fallback: use LLM intent logic
         intent_prompt = f"""
         Is the following user message a new regulatory, compliance, or update-related question? Respond 'yes' ONLY if the user is asking a new regulatory, compliance, or update-related question, not a follow-up or general question. If the message is a follow-up to a previous regulatory discussion (e.g., 'Can you expand on that?', 'What about healthcare?'), or a general/non-regulatory question, respond 'no'.
         
