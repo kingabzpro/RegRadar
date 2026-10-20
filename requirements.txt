@@ -1,3 +1,3 @@
 openai==1.88.0
 tavily-python==0.7.6
-mem0ai==0.1.108
+mem0ai==2.0.0b2
